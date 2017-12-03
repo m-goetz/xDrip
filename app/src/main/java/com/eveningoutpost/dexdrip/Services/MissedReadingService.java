@@ -62,7 +62,7 @@ public class MissedReadingService extends IntentService {
             }
         }
 
-        if ((prefs.getBoolean("aggressive_service_restart", false) || DexCollectionType.isFlakey())) {//!Home.get_enable_wear() &&
+        if ((prefs.getBoolean("aggressive_service_restart", false))) {//!Home.get_enable_wear() &&
             if (!BgReading.last_within_millis(stale_millis) && Sensor.isActive()) {
                 if (JoH.ratelimit("aggressive-restart", aggressive_backoff_timer)) {
                     Log.e(TAG, "Aggressively restarting collector service due to lack of reception: backoff: " + aggressive_backoff_timer);

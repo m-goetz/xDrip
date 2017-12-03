@@ -365,10 +365,6 @@ public class Ob1G5CollectionService extends G5BaseService {
                 // Attempt to establish a connection
                 connectionSubscription = bleDevice.establishConnection(auto)
                         .timeout(7, TimeUnit.MINUTES)
-                        // .flatMap(RxBleConnection::discoverServices)
-                        // .observeOn(AndroidSchedulers.mainThread())
-                        // .doOnUnsubscribe(this::clearSubscription)
-
                         .subscribe(this::onConnectionReceived, this::onConnectionFailure);
 
             } else {

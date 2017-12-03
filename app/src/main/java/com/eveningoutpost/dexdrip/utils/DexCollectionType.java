@@ -125,8 +125,6 @@ public enum DexCollectionType {
         return usesDexcomRaw.contains(type);
     }
 
-    public static boolean isFlakey() { return getDexCollectionType() == DexCollectionType.DexcomG5; }
-
     public static boolean hasFiltered() {
         return does_have_filtered || usesFiltered.contains(getDexCollectionType());
     }
