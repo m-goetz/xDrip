@@ -88,13 +88,9 @@ public class Ob1G5CollectionService extends G5BaseService {
     private static String transmitterMAC;
     private static String transmitterIDmatchingMAC;
 
-    //private static String lastState = "Not running";
-    //private static String lastStateWatch = "Not running";
     private static String lastScanError = null;
     private static String static_connection_state = null;
     private static long static_last_connected = 0;
-    //private static long static_last_timestamp = 0;
-    //private static long static_last_timestamp_watch = 0;
     private static long last_transmitter_timestamp = 0;
     private static long lastStateUpdated = 0;
     private static long wakeup_time = 0;
@@ -139,7 +135,6 @@ public class Ob1G5CollectionService extends G5BaseService {
     private static final boolean do_auth = true;
     private static boolean initiate_bonding = false;
 
-    //private static final Set<String> alwaysScanModels = Sets.newHashSet("SM-N910V","G Watch","SmartWatch 3");
     private static final Set<String> alwaysScanModels = Sets.newHashSet("SM-N910V","G Watch");
     private static final List<String> alwaysScanModelFamilies = Arrays.asList("SM-N910");
     private static final Set<String> alwaysConnectModels = Sets.newHashSet("G Watch");
@@ -157,7 +152,6 @@ public class Ob1G5CollectionService extends G5BaseService {
         GET_DATA("Getting Data"),
         CLOSE("Sleeping"),
         CLOSED("Deep Sleeping");
-
 
         private String str;
 
@@ -198,7 +192,7 @@ public class Ob1G5CollectionService extends G5BaseService {
             try {
                 Thread.sleep(timeout);
             } catch (InterruptedException e) {
-                //
+                UserError.Log.wtf(TAG, "Background automata Thread crashed", e);
             }
             background_launch_waiting = false;
             JoH.releaseWakeLock(wl);
@@ -249,7 +243,6 @@ public class Ob1G5CollectionService extends G5BaseService {
                             resetState();
                         break;
                     case BOND:
-                        //create_bond();
                         UserError.Log.d(TAG, "State bond currently does nothing");
                         break;
                     case GET_DATA:
@@ -314,21 +307,10 @@ public class Ob1G5CollectionService extends G5BaseService {
                 scanSubscription = rxBleClient.scanBleDevices(
                         new ScanSettings.Builder()
                                 .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
-                                //.setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
                                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-                                .build()//,
+                                .build())
+                                .subscribe(this::onScanResult, this::onScanFailure);
 
-                        // scan filter doesn't work reliable on android sdk 23+
-                        //new ScanFilter.Builder()
-                        //.
-                        //          .setDeviceName(getTransmitterBluetoothName())
-                        //         .build()
-
-                )
-                        // observe on?
-                        // do unsubscribe?
-                        //.doOnUnsubscribe(this::clearSubscription)
-                        .subscribe(this::onScanResult, this::onScanFailure);
                 UserError.Log.d(TAG, "Scanning for: " + getTransmitterBluetoothName());
             } else {
                 UserError.Log.d(TAG, "Transmitter mac already known: " + transmitterMAC);
@@ -402,8 +384,6 @@ public class Ob1G5CollectionService extends G5BaseService {
             try {
                 msg("Bonding");
                 do_create_bond();
-                //state = STATE.CONNECT_NOW;
-                //background_automata(15000);
             } catch (Exception e) {
                 UserError.Log.wtf(TAG, "Exception creating bond: " + e);
             }
@@ -473,11 +453,6 @@ public class Ob1G5CollectionService extends G5BaseService {
                 return false;
         }
         return true;
-    }
-
-    // check required permissions and warn the user if they are wrong
-    private static void checkPermissions() {
-
     }
 
     private static synchronized boolean isDeviceLocallyBonded() {
@@ -813,7 +788,6 @@ public class Ob1G5CollectionService extends G5BaseService {
     // Connection has been terminated or failed
     // - quite normal when device switches to sleep between readings
     private void onConnectionFailure(Throwable throwable) {
-        // msg("Connection failure");
         // TODO under what circumstances should we change state or do something here?
         UserError.Log.d(TAG, "Connection Disconnected/Failed: " + throwable);
 
@@ -904,9 +878,6 @@ public class Ob1G5CollectionService extends G5BaseService {
         }
         static_connection_state = connection_state;
         UserError.Log.d(TAG, "Bluetooth connection: " + static_connection_state);
-        if (connection_state.equals("Disconnecting")) {
-            //tryGattRefresh();
-        }
     }
 
     public static void connectionStateChange(String connection_state) {
@@ -933,15 +904,6 @@ public class Ob1G5CollectionService extends G5BaseService {
     private void onDiscoverFailed(Throwable throwable) {
         UserError.Log.e(TAG, "Discover failure: " + throwable.toString());
         incrementErrors();
-    }
-
-    private void clearSubscription() {
-        scanSubscription = null;
-
-    }
-
-    private boolean g5BluetoothWatchdog() {
-        return Home.getPreferencesBoolean("g5_bluetooth_watchdog", true);
     }
 
     public static void updateLast(long timestamp) {
@@ -1142,20 +1104,6 @@ public class Ob1G5CollectionService extends G5BaseService {
         UserError.Log.d(TAG, "Status: " + lastState);
         lastStateUpdated = JoH.tsl();
     }
-
-   /* public static void setWatchStatus(DataMap dataMap) {
-        lastStateWatch = dataMap.getString("lastState", "");
-        static_last_timestamp_watch = dataMap.getLong("timestamp", 0);
-    }
-
-    public static DataMap getWatchStatus() {
-        DataMap dataMap = new DataMap();
-        dataMap.putString("lastState", lastState);
-        dataMap.putLong("timestamp", static_last_timestamp);
-        return dataMap;
-    }
-
-*/
 
     // data for MegaStatus
     public static List<StatusItem> megaStatus() {
