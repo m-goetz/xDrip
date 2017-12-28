@@ -76,6 +76,7 @@ public class Ob1G5CollectionService extends G5BaseService {
 
     public static final String TAG = Ob1G5CollectionService.class.getSimpleName();
     public static final String OB1G5_PREFS = "use_ob1_g5_collector_service";
+    public static final String ALARM_MANAGER_G5_PREF = "use_alarm_man_g5_collector_service";
     private static final String OB1G5_MACSTORE = "G5-mac-for-txid-";
     private static final String BUGGY_SAMSUNG_ENABLED = "buggy-samsung-enabled";
     private static STATE state = STATE.INIT;

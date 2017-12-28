@@ -96,6 +96,11 @@
 
             <CheckBoxPreference
                 android:defaultValue="false"
+                android:key="use_alarm_man_g5_collector_service"
+                android:summary="Read G5 by using Android Alarm Manager"
+                android:title="Try Alarm Manager G5 Collector" />
+            <CheckBoxPreference
+                android:defaultValue="false"
                 android:key="use_ob1_g5_collector_service"
                 android:summary="Complete re-write, should work on Android 4.4 and more"
                 android:title="Try the new OB1 G5 Collector" />

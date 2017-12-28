@@ -309,7 +309,9 @@
         <service
             android:name=".Services.Ob1G5CollectionService"
             android:enabled="true" />
-
+        <service
+            android:name=".Services.AlarmManagerG5CollectionService"
+            android:enabled="true" />
         <activity
             android:name=".ShareTest"
             android:label="@string/title_activity_share_test" />
@@ -337,6 +339,8 @@
             android:name=".WidgetUpdateService"
             android:enabled="true"
             android:exported="true" />
+
+        <receiver android:name=".Services.AlarmReceiver"/>
 
         <meta-data
             android:name="io.fabric.ApiKey"

@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothGatt;
 import android.os.Build;
 import android.os.PowerManager;
 
+import com.eveningoutpost.dexdrip.Home;
 import com.eveningoutpost.dexdrip.Models.BgReading;
 import com.eveningoutpost.dexdrip.Models.JoH;
 import com.eveningoutpost.dexdrip.Models.Sensor;
@@ -90,12 +91,12 @@ public class Ob1G5StateMachine {
                                         connection.readCharacteristic(Authentication).subscribe(
                                                 readValue -> {
                                                     PacketShop pkt = classifyPacket(readValue);
-                                                    UserError.Log.d(TAG, "Read from auth request: " + pkt.type + " " + JoH.bytesToHex(readValue));
+                                                    UserError.Log.d(TAG, "Read from auth request: " + pkt.getType() + " " + JoH.bytesToHex(readValue));
 
-                                                    switch (pkt.type) {
+                                                    switch (pkt.getType()) {
                                                         case AuthChallengeRxMessage:
                                                             // Respond to the challenge request
-                                                            byte[] challengeHash = calculateHash(((AuthChallengeRxMessage) pkt.msg).challenge);
+                                                            byte[] challengeHash = calculateHash(((AuthChallengeRxMessage) pkt.getMessage()).challenge);
                                                             if (d)
                                                                 UserError.Log.d(TAG, "challenge hash" + Arrays.toString(challengeHash));
                                                             if (challengeHash != null) {
@@ -114,9 +115,9 @@ public class Ob1G5StateMachine {
                                                                                                     status_value -> {
                                                                                                         // interpret authentication response
                                                                                                         final PacketShop status_packet = classifyPacket(status_value);
-                                                                                                        UserError.Log.d(TAG, status_packet.type + " " + JoH.bytesToHex(status_value));
-                                                                                                        if (status_packet.type == PACKET.AuthStatusRxMessage) {
-                                                                                                            final AuthStatusRxMessage status = (AuthStatusRxMessage) status_packet.msg;
+                                                                                                        UserError.Log.d(TAG, status_packet.getType() + " " + JoH.bytesToHex(status_value));
+                                                                                                        if (status_packet.getType() == Packet.AuthStatusRxMessage) {
+                                                                                                            final AuthStatusRxMessage status = (AuthStatusRxMessage) status_packet.getMessage();
                                                                                                             if (d)
                                                                                                                 UserError.Log.d(TAG, ("Authenticated: " + status.isAuthenticated() + " " + status.isBonded()));
                                                                                                             if (status.isAuthenticated()) {
@@ -137,7 +138,7 @@ public class Ob1G5StateMachine {
                                                                                                                 // TODO? try again?
                                                                                                             }
                                                                                                         } else {
-                                                                                                            UserError.Log.e(TAG, "Got unexpected packet when looking for auth status: " + status_packet.type + " " + JoH.bytesToHex(status_value));
+                                                                                                            UserError.Log.e(TAG, "Got unexpected packet when looking for auth status: " + status_packet.getType() + " " + JoH.bytesToHex(status_value));
                                                                                                             parent.incrementErrors();
                                                                                                             // TODO what to do here?
                                                                                                         }
@@ -166,7 +167,7 @@ public class Ob1G5StateMachine {
                                                             break;
 
                                                         default:
-                                                            UserError.Log.e(TAG, "Unhandled packet type in reply: " + pkt.type + " " + JoH.bytesToHex(readValue));
+                                                            UserError.Log.e(TAG, "Unhandled packet type in reply: " + pkt.getType() + " " + JoH.bytesToHex(readValue));
                                                             parent.incrementErrors();
                                                             // TODO what to do here?
                                                             break;
@@ -341,7 +342,7 @@ public class Ob1G5StateMachine {
                     // incoming data notifications
                     UserError.Log.d(TAG, "Received indication bytes: " + JoH.bytesToHex(bytes));
                     final PacketShop data_packet = classifyPacket(bytes);
-                    switch (data_packet.type) {
+                    switch (data_packet.getType()) {
                         case SensorRxMessage:
 
                             try {
@@ -367,7 +368,7 @@ public class Ob1G5StateMachine {
 
                                 }
                             } finally {
-                                processSensorRxMessage((SensorRxMessage) data_packet.msg);
+                                processSensorRxMessage((SensorRxMessage) data_packet.getMessage());
                                 parent.msg("Got data");
                                 parent.updateLast(JoH.tsl());
                                 parent.clearErrors();
@@ -437,7 +438,7 @@ public class Ob1G5StateMachine {
         UserError.Log.d(TAG, "Disconnect NOW exit: " + JoH.dateTimeText(JoH.tsl()));
     }
 
-    private static void processSensorRxMessage(SensorRxMessage sensorRx) {
+    public static void processSensorRxMessage(SensorRxMessage sensorRx) {
         if (sensorRx == null) return;
 
         // TODO, is this accurate or needed?
@@ -494,18 +495,20 @@ public class Ob1G5StateMachine {
 
     }
 
-    private static boolean haveFirmwareDetails() {
-        return Ob1G5CollectionService.getTransmitterID().length() == 6 && getStoredFirmwareBytes(Ob1G5CollectionService.getTransmitterID()).length >= 10;
+    public static boolean haveFirmwareDetails() {
+        String transmitterId = Home.getPreferencesStringWithDefault("dex_txid", "NULL");
+        return transmitterId.length() == 6 && getStoredFirmwareBytes(transmitterId).length >= 10;
     }
 
     public final static String G5_FIRMWARE_MARKER = "g5-firmware-";
     public final static String G5_BATTERY_FROM_MARKER = "g5-battery-from";
 
-    private static boolean haveCurrentBatteryStatus() {
-        return Ob1G5CollectionService.getTransmitterID().length() == 6 && (JoH.msSince(PersistentStore.getLong(G5_BATTERY_FROM_MARKER + Ob1G5CollectionService.getTransmitterID())) < BATTERY_READ_PERIOD_MS);
+    public static boolean haveCurrentBatteryStatus() {
+        String transmitterId = Home.getPreferencesStringWithDefault("dex_txid", "NULL");
+        return transmitterId.length() == 6 && (JoH.msSince(PersistentStore.getLong(G5_BATTERY_FROM_MARKER + transmitterId)) < BATTERY_READ_PERIOD_MS);
     }
 
-    private static byte[] getStoredFirmwareBytes(String transmitterId) {
+    public static byte[] getStoredFirmwareBytes(String transmitterId) {
         if (transmitterId.length() != 6) return new byte[0];
         return PersistentStore.getBytes(G5_FIRMWARE_MARKER + transmitterId);
     }
@@ -592,7 +595,7 @@ public class Ob1G5StateMachine {
     }
 
 
-    private static synchronized byte[] calculateHash(byte[] data) {
+    public static synchronized byte[] calculateHash(byte[] data) {
         if (data.length != 8) {
             UserError.Log.e(TAG, "Data length should be exactly 8.");
             return null;
@@ -626,8 +629,9 @@ public class Ob1G5StateMachine {
         return null;
     }
 
-    private static byte[] cryptKey() {
-        final String transmitterId = Ob1G5CollectionService.getTransmitterID();
+    public static byte[] cryptKey() {
+        //final String transmitterId = Ob1G5CollectionService.getTransmitterID();
+        final String transmitterId = "40RDC8";
         if (transmitterId.length() != 6)
             UserError.Log.e(TAG, "cryptKey: Wrong transmitter id length!: " + transmitterId.length());
         try {
@@ -638,53 +642,30 @@ public class Ob1G5StateMachine {
         return null;
     }
 
-    // types of packet we receive
-    private enum PACKET {
-        NULL,
-        UNKNOWN,
-        AuthChallengeRxMessage,
-        AuthStatusRxMessage,
-        SensorRxMessage,
-        VersionRequestRxMessage,
-        BatteryInfoRxMessage
-
-    }
-
-    // unified data structure
-    private static class PacketShop {
-        private PACKET type;
-        private TransmitterMessage msg;
-
-        PacketShop(PACKET type, TransmitterMessage msg) {
-            this.type = type;
-            this.msg = msg;
-        }
-    }
-
     // work out what type of packet we received and wrap it up nicely
-    private static PacketShop classifyPacket(byte[] packet) {
-        if ((packet == null) || (packet.length == 0)) return new PacketShop(PACKET.NULL, null);
+    public static PacketShop classifyPacket(byte[] packet) {
+        if ((packet == null) || (packet.length == 0)) return new PacketShop(Packet.NULL, null);
         switch ((int) packet[0]) {
             case AuthChallengeRxMessage.opcode:
-                return new PacketShop(PACKET.AuthChallengeRxMessage, new AuthChallengeRxMessage(packet));
+                return new PacketShop(Packet.AuthChallengeRxMessage, new AuthChallengeRxMessage(packet));
             case AuthStatusRxMessage.opcode:
-                return new PacketShop(PACKET.AuthStatusRxMessage, new AuthStatusRxMessage(packet));
+                return new PacketShop(Packet.AuthStatusRxMessage, new AuthStatusRxMessage(packet));
             case SensorRxMessage.opcode:
-                return new PacketShop(PACKET.SensorRxMessage, new SensorRxMessage(packet));
+                return new PacketShop(Packet.SensorRxMessage, new SensorRxMessage(packet));
             case VersionRequestRxMessage.opcode:
-                return new PacketShop(PACKET.VersionRequestRxMessage, new VersionRequestRxMessage(packet));
+                return new PacketShop(Packet.VersionRequestRxMessage, new VersionRequestRxMessage(packet));
             case BatteryInfoRxMessage.opcode:
-                return new PacketShop(PACKET.BatteryInfoRxMessage, new BatteryInfoRxMessage(packet));
+                return new PacketShop(Packet.BatteryInfoRxMessage, new BatteryInfoRxMessage(packet));
         }
-        return new PacketShop(PACKET.UNKNOWN, null);
+        return new PacketShop(Packet.UNKNOWN, null);
     }
 
     private static int getTokenSize() {
         return 8;
     }
 
-    private static class OperationSuccess extends RuntimeException {
-        private OperationSuccess(String message) {
+    public static class OperationSuccess extends RuntimeException {
+        public OperationSuccess(String message) {
             super(message);
             UserError.Log.d(TAG, "Operation Success: " + message);
         }

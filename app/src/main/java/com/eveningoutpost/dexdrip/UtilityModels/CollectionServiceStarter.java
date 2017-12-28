@@ -11,6 +11,7 @@ import android.preference.PreferenceManager;
 import com.eveningoutpost.dexdrip.GcmActivity;
 import com.eveningoutpost.dexdrip.Home;
 import com.eveningoutpost.dexdrip.Models.UserError.Log;
+import com.eveningoutpost.dexdrip.Services.AlarmManagerG5CollectionService;
 import com.eveningoutpost.dexdrip.Services.DailyIntentService;
 import com.eveningoutpost.dexdrip.Services.DexCollectionService;
 import com.eveningoutpost.dexdrip.Services.DexShareCollectionService;
@@ -352,15 +353,17 @@ public class CollectionServiceStarter {
         Log.d(TAG,"stopping G5 service");
         stopG5ShareService();
         Log.d(TAG, "starting G5 service");
-        //if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR2) {
-       if (!Home.getPreferencesBooleanDefaultFalse(Ob1G5CollectionService.OB1G5_PREFS)) {
-           G5CollectionService.keep_running = true;
-           this.mContext.startService(new Intent(this.mContext, G5CollectionService.class));
-       } else {
+       if (Home.getPreferencesBooleanDefaultFalse(Ob1G5CollectionService.OB1G5_PREFS)) {
+           Log.d(TAG, "Preference for Ob1G5CollectionService set to true");
            Ob1G5CollectionService.keep_running = true;
            this.mContext.startService(new Intent(this.mContext, Ob1G5CollectionService.class));
+       } else if (Home.getPreferencesBooleanDefaultFalse(Ob1G5CollectionService.ALARM_MANAGER_G5_PREF)) {
+           Log.d(TAG, "Preference for AlarmManagerG5Service set to true");
+           this.mContext.startService(new Intent(this.mContext, AlarmManagerG5CollectionService.class));
+       } else {
+           G5CollectionService.keep_running = true;
+           this.mContext.startService(new Intent(this.mContext, G5CollectionService.class));
        }
-        //}
     }
 
     private void startPebbleSyncService() {
@@ -417,6 +420,7 @@ public class CollectionServiceStarter {
         this.mContext.stopService(new Intent(this.mContext, G5CollectionService.class));
         Ob1G5CollectionService.keep_running = false; // ensure zombie stays down
         this.mContext.stopService(new Intent(this.mContext, Ob1G5CollectionService.class));
+        this.mContext.stopService(new Intent(this.mContext, AlarmManagerG5CollectionService.class));
     }
 
 }
