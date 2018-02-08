@@ -95,7 +95,7 @@
             android:title="@string/g5_debug_settings">
 
             <CheckBoxPreference
-                android:defaultValue="false"
+                android:defaultValue="true"
                 android:key="use_alarm_man_g5_collector_service"
                 android:summary="Read G5 by using Android Alarm Manager"
                 android:title="Try Alarm Manager G5 Collector" />

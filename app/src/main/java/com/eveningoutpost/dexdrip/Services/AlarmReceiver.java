@@ -3,11 +3,14 @@ package com.eveningoutpost.dexdrip.Services;
 import android.annotation.TargetApi;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattService;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.PowerManager;
 
 import com.eveningoutpost.dexdrip.G5Model.BluetoothServices;
 import com.eveningoutpost.dexdrip.Home;
@@ -42,8 +45,8 @@ public class AlarmReceiver extends BroadcastReceiver {
     private String transmitterID;
     private String macAddress;
 
-    private long lastSuccessfulReceiverStartMillis;
-    private long receiverStartMillis;
+    private long lastSuccessfulReceiverConnectionMillis;
+    private Calendar plannedConnectionStartMillis;
 
     private RxBleClient rxBleClient;
     private RxBleDevice bleDevice;
@@ -59,6 +62,7 @@ public class AlarmReceiver extends BroadcastReceiver {
 
     private State state = State.INITIAL;
 
+
     private enum State {
         INITIAL,
         AWAIT_BOND,
@@ -68,25 +72,32 @@ public class AlarmReceiver extends BroadcastReceiver {
     public void copyObjectState(AlarmReceiver receiverToCopy) {
         this.transmitterID = receiverToCopy.transmitterID;
         this.macAddress = receiverToCopy.macAddress;
-        this.lastSuccessfulReceiverStartMillis = receiverToCopy.lastSuccessfulReceiverStartMillis;
+        this.lastSuccessfulReceiverConnectionMillis = receiverToCopy.lastSuccessfulReceiverConnectionMillis;
         this.rxBleClient = receiverToCopy.rxBleClient;
         this.bleDevice = receiverToCopy.bleDevice;
         this.scanSubscription = receiverToCopy.scanSubscription;
         this.connectionSubscription = receiverToCopy.connectionSubscription;
         this.connection = receiverToCopy.connection;
         this.state = receiverToCopy.state;
+        this.plannedConnectionStartMillis = receiverToCopy.plannedConnectionStartMillis;
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
         this.context = context;
-        this.receiverStartMillis = System.currentTimeMillis();
+
+        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AlarmManager Wakelock");
+        wl.acquire();
 
         if (singletonAlarmReceiver != null) {
             copyObjectState(singletonAlarmReceiver);
-            UserError.Log.i(AlarmManagerG5CollectionService.CLASS_NAME, "Restarted AlarmReceiver");
+            UserError.Log.wtf(AlarmManagerG5CollectionService.CLASS_NAME,
+                    "Restarted AlarmReceiver at " + format(Calendar.getInstance()));
         }
         singletonAlarmReceiver = this;
+
+        enableBluetoothIfNecessary();
 
         switch(this.state) {
             case INITIAL:
@@ -100,18 +111,41 @@ public class AlarmReceiver extends BroadcastReceiver {
             case DATA_COLLECT:
                 if (this.bleDevice.getConnectionState() != RxBleConnection.RxBleConnectionState.DISCONNECTED) {
                     restartAlarmReceiver(100);
-                } else {
-                    collectData();
+                    break;
+                }
+
+                if (weAreInTimeframeBeforeConnection()) {
+                    Handler handler = new Handler();
+                    Runnable collectData = () -> collectData();
+                    handler.post(collectData);
+                }
+                else {
+                    UserError.Log.wtf(AlarmManagerG5CollectionService.CLASS_NAME,
+                            "Not in Timeframe. Restarting...");
+                    restartAlarmReceiver(nextCollectingTry());
                 }
                 break;
+        }
+
+        wl.release();
+    }
+
+    private boolean weAreInTimeframeBeforeConnection() {
+        return System.currentTimeMillis() < plannedConnectionStartMillis.getTimeInMillis()
+                && System.currentTimeMillis() > plannedConnectionStartMillis.getTimeInMillis() - 60000;
+    }
+
+    private void enableBluetoothIfNecessary() {
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter != null && !mBluetoothAdapter.isEnabled()) {
+            mBluetoothAdapter.enable();
         }
     }
 
     private void collectData() {
         this.connectionRequest = new G5ConnectionRequest(this.rxBleClient, this.macAddress).connect(rxBleConnection -> {
             this.connection = rxBleConnection;
-            //this.lastSuccessfulReceiverStartMillis = receiverStartMillis;
-            this.lastSuccessfulReceiverStartMillis = System.currentTimeMillis();
+            this.lastSuccessfulReceiverConnectionMillis = System.currentTimeMillis();
             authorizeAndGetData();
         }, this::printStacktraceAndTryAgain);
     }
@@ -159,8 +193,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         UserError.Log.d(AlarmManagerG5CollectionService.CLASS_NAME, "Dexcom found: " + this.macAddress);
         this.connectionRequest = new G5ConnectionRequest(this.rxBleClient, this.macAddress).connect(rxBleConnection -> {
             this.connection = rxBleConnection;
-            //this.lastSuccessfulReceiverStartMillis = receiverStartMillis;
-            this.lastSuccessfulReceiverStartMillis = System.currentTimeMillis();
+            this.lastSuccessfulReceiverConnectionMillis = System.currentTimeMillis();
             UserError.Log.d(AlarmManagerG5CollectionService.CLASS_NAME, "Established... " + connection.toString());
             discoverServices();
         }, this::printStacktraceAndTryAgain);
@@ -202,10 +235,10 @@ public class AlarmReceiver extends BroadcastReceiver {
 
     private void disconnectAndRestart() {
         this.disconnectionRequest = new G5DisconnectionRequest(connection).disconnect(disconnectBytes -> {
-            restartAlarmReceiver(nextCollectingTime());
+            restartAlarmReceiver(nextCollectingTry());
         }, throwable -> {
             UserError.Log.d(AlarmManagerG5CollectionService.CLASS_NAME, "Disconnect caused exception: " + throwable);
-            restartAlarmReceiver(nextCollectingTime());
+            restartAlarmReceiver(nextCollectingTry());
         });
     }
 
@@ -216,10 +249,6 @@ public class AlarmReceiver extends BroadcastReceiver {
     @TargetApi(LOLLIPOP)
     private void createBond() {
         this.bleDevice.getBluetoothDevice().createBond();
-    }
-
-    private void onConnectionStateChange(RxBleConnection.RxBleConnectionState connectionState) {
-        UserError.Log.d(AlarmManagerG5CollectionService.CLASS_NAME, "New Connection State: " + connectionState);
     }
 
     private void logG5Services(RxBleDeviceServices rxBleDeviceServices) {
@@ -233,7 +262,7 @@ public class AlarmReceiver extends BroadcastReceiver {
 
     private void printStacktraceAndTryAgain(Throwable throwable) {
         throwable.printStackTrace();
-        restartAlarmReceiver(nextCollectingTime());
+        restartAlarmReceiver(nextCollectingTry());
     }
 
     public void restartAlarmReceiver(long millis) {
@@ -247,7 +276,10 @@ public class AlarmReceiver extends BroadcastReceiver {
         AlarmManager alarmMgr = (AlarmManager) context.getSystemService(context.ALARM_SERVICE);
         Intent receiverIntent = new Intent(context, AlarmReceiver.class);
         PendingIntent alarmIntent = PendingIntent.getBroadcast(context.getApplicationContext(), 0, receiverIntent, 0);
-        alarmMgr.setWindow(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis() - 5000, 4000, alarmIntent);
+
+        cal.setTimeInMillis(cal.getTimeInMillis() - 5000);
+
+        alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), alarmIntent);
 
         if (this.connectionRequest != null) this.connectionRequest.unsubscribe();
         if (this.disconnectionRequest != null) this.disconnectionRequest.unsubscribe();
@@ -255,19 +287,19 @@ public class AlarmReceiver extends BroadcastReceiver {
         if (this.transmitterScan != null) this.transmitterScan.unsubscribe();
         if (this.authorizationRequest != null) this.authorizationRequest.unsubscribe();
 
-        UserError.Log.i(AlarmManagerG5CollectionService.CLASS_NAME,
+        UserError.Log.wtf(AlarmManagerG5CollectionService.CLASS_NAME,
                 "Next AlarmReceiver start planned for: " + format(cal));
     }
 
-    private Calendar nextCollectingTime() {
+    private Calendar nextCollectingTry() {
         int offsetInMinutes;
         long calendarBaseTimeMillis;
 
-        if (lastSuccessfulReceiverStartMillis == 0) {
+        if (lastSuccessfulReceiverConnectionMillis == 0) {
             calendarBaseTimeMillis = System.currentTimeMillis();
             offsetInMinutes = 1;
         } else {
-            calendarBaseTimeMillis = lastSuccessfulReceiverStartMillis;
+            calendarBaseTimeMillis = lastSuccessfulReceiverConnectionMillis;
             offsetInMinutes = 5;
 
             while (plannedStartIsInPast(offsetInMinutes)) {
@@ -275,15 +307,19 @@ public class AlarmReceiver extends BroadcastReceiver {
             }
         }
 
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(calendarBaseTimeMillis);
-        calendar.set(Calendar.MINUTE, calendar.get(Calendar.MINUTE) + offsetInMinutes);
+        Calendar plannedStart = Calendar.getInstance();
+        plannedStart.setTimeInMillis(calendarBaseTimeMillis);
+        plannedStart.set(Calendar.MINUTE, plannedStart.get(Calendar.MINUTE) + offsetInMinutes);
+        this.plannedConnectionStartMillis = plannedStart;
 
-        return calendar;
+        Calendar nextTry = Calendar.getInstance();
+        nextTry.setTimeInMillis(nextTry.getTimeInMillis() + 30000);
+
+        return nextTry;
     }
 
     private boolean plannedStartIsInPast(int offsetInMinutes) {
-        return (lastSuccessfulReceiverStartMillis + (offsetInMinutes * 60 * 1000)) < System.currentTimeMillis();
+        return (lastSuccessfulReceiverConnectionMillis + (offsetInMinutes * 60 * 1000)) < System.currentTimeMillis();
     }
 
     public static String format(Calendar calendar){

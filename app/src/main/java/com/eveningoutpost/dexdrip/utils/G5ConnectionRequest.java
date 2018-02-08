@@ -16,16 +16,23 @@ public class G5ConnectionRequest {
     private final RxBleClient bleClient;
     private final String macAddress;
 
+    private final long timeout;
+
     public G5ConnectionRequest(RxBleClient client, String address) {
+        this(client, address, 60000);
+    }
+
+    public G5ConnectionRequest(RxBleClient client, String address, long timeout) {
         this.bleClient = client;
         this.macAddress = address;
+        this.timeout = timeout;
     }
 
     public Subscription connect(Action1<RxBleConnection> successConsumer, Action1<Throwable> failConsumer) {
         UserError.Log.d(getClass().getSimpleName(), "Start connecting...");
         RxBleDevice bleDevice = bleClient.getBleDevice(this.macAddress);
         return bleDevice.establishConnection(true)
-                .timeout(1, TimeUnit.MINUTES)
+                .timeout(this.timeout, TimeUnit.MILLISECONDS)
                 .delay(100, TimeUnit.MILLISECONDS)
                 .subscribe(successConsumer::call, failConsumer::call);
     }
