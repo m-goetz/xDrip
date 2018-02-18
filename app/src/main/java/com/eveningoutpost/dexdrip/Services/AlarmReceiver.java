@@ -277,9 +277,9 @@ public class AlarmReceiver extends BroadcastReceiver {
         Intent receiverIntent = new Intent(context, AlarmReceiver.class);
         PendingIntent alarmIntent = PendingIntent.getBroadcast(context.getApplicationContext(), 0, receiverIntent, 0);
 
-        cal.setTimeInMillis(cal.getTimeInMillis() - 5000);
+        cal.setTimeInMillis(cal.getTimeInMillis());
 
-        alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), alarmIntent);
+        alarmMgr.setExact(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), alarmIntent);
 
         if (this.connectionRequest != null) this.connectionRequest.unsubscribe();
         if (this.disconnectionRequest != null) this.disconnectionRequest.unsubscribe();
@@ -313,7 +313,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         this.plannedConnectionStartMillis = plannedStart;
 
         Calendar nextTry = Calendar.getInstance();
-        nextTry.setTimeInMillis(nextTry.getTimeInMillis() + 30000);
+        nextTry.setTimeInMillis(nextTry.getTimeInMillis() + 20000);
 
         return nextTry;
     }
