@@ -453,7 +453,10 @@ public class BgSendQueue extends Model {
                 || prefs.getBoolean("status_line_accuracy", false)
                 || prefs.getBoolean("status_line_capture_percentage", false)) {
 
-            final StatsResult statsResult = new StatsResult(prefs, Home.getPreferencesBooleanDefaultFalse("extra_status_stats_24h"));
+            //final StatsResult statsResult = new StatsResult(prefs, Home.getPreferencesBooleanDefaultFalse("extra_status_stats_24h"));
+
+            int timeSpanInHours = Integer.parseInt(Home.getPreferencesStringWithDefault("time_span_average", "24").split(" ")[0]);
+            final StatsResult statsResult = new StatsResult(prefs, System.currentTimeMillis() - (timeSpanInHours * 60l * 60l * 1000l), System.currentTimeMillis());
 
             if (prefs.getBoolean("status_line_avg", false)) {
                 if (extraline.length() != 0) extraline.append(' ');

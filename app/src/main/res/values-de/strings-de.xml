@@ -779,6 +779,10 @@
 	<string name="xdrip_motion_tracking">xDrip+ Bewegungserkennung</string>
 	<string name="lower_button_bar_falir">Farbe der System-Navigationsleiste</string>
 	<string name="upper_title_bar_flair">Farbe der System-Statusleiste</string>
+	<string name="alarm_manager_collection_interval">Collection Service Intervall</string>
+	<string name="alarm_manager_collection_interval_descr">Intervall in Millisekunden zum Aufwecken des Collection Service. Kleine Werte führen zu schneller Batterieentladung.</string>
+	<string name="time_span_average_hours">Zeitspanne für Durchschnittswerte</string>
+	<string name="time_span_average_hours_descr">Zeitspanne für Durchschnittswerte in Stunden</string>
 
 	<!-- Difficult translation -->
 	<string name="low_level_value">Systemnaher Diagnose-/Prototypwert</string>

@@ -824,4 +824,8 @@
     <string name="use_gravity_sensor_to_rotate_items">Use Gravity Sensor to rotate items</string>
     <string name="low_bridge_battery">Low bridge battery</string>
     <string name="reminders">Reminders</string>
+    <string name="alarm_manager_collection_interval">Collection Service Interval</string>
+    <string name="alarm_manager_collection_interval_descr">Interval in milliseconds to wake the collection service. Low values can cause battery drain.</string>
+    <string name="time_span_average_hours">Time span for average</string>
+    <string name="time_span_average_hours_descr">Time span for average in hours</string>
 </resources>

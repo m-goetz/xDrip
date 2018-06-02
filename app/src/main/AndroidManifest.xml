@@ -340,8 +340,6 @@
             android:enabled="true"
             android:exported="true" />
 
-        <receiver android:name=".Services.AlarmReceiver"/>
-
         <meta-data
             android:name="io.fabric.ApiKey"
             android:value="913d7bd9c0b910d315c3bc0e057056daf73b698e" />

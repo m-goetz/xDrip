@@ -2,20 +2,14 @@ package com.eveningoutpost.dexdrip.utils;
 
 import android.bluetooth.BluetoothGatt;
 import android.os.Build;
-import android.os.PowerManager;
 
 import com.eveningoutpost.dexdrip.G5Model.BondRequestTxMessage;
 import com.eveningoutpost.dexdrip.G5Model.KeepAliveTxMessage;
-import com.eveningoutpost.dexdrip.G5Model.Ob1G5StateMachine;
 import com.eveningoutpost.dexdrip.Models.JoH;
 import com.eveningoutpost.dexdrip.Models.UserError;
-import com.eveningoutpost.dexdrip.Services.AlarmReceiver;
-import com.eveningoutpost.dexdrip.Services.Ob1G5CollectionService;
 import com.polidea.rxandroidble.RxBleConnection;
 
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-
 import rx.Subscription;
 import rx.functions.Action1;
 import rx.schedulers.Schedulers;

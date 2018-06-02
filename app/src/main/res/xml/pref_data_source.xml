@@ -93,12 +93,19 @@
             android:key="xdrip_plus_g5_extra_settings"
             android:summary="@string/advanced_g5_settings"
             android:title="@string/g5_debug_settings">
-
             <CheckBoxPreference
                 android:defaultValue="true"
                 android:key="use_alarm_man_g5_collector_service"
                 android:summary="Read G5 by using Android Alarm Manager"
                 android:title="Try Alarm Manager G5 Collector" />
+            <EditTextPreference
+                android:defaultValue="20000"
+                android:inputType="number"
+                android:key="alarm_manager_collection_interval"
+                android:selectAllOnFocus="true"
+                android:singleLine="true"
+                android:summary="@string/alarm_manager_collection_interval_descr"
+                android:title="@string/alarm_manager_collection_interval" />
             <CheckBoxPreference
                 android:defaultValue="false"
                 android:key="use_ob1_g5_collector_service"

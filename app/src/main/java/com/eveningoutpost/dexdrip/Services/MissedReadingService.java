@@ -62,15 +62,11 @@ public class MissedReadingService extends IntentService {
             }
         }
 
-        if ((prefs.getBoolean("aggressive_service_restart", false))) {//!Home.get_enable_wear() &&
+        if ((prefs.getBoolean("aggressive_service_restart", false))) {
             if (!BgReading.last_within_millis(stale_millis) && Sensor.isActive()) {
-                if (JoH.ratelimit("aggressive-restart", aggressive_backoff_timer)) {
-                    Log.e(TAG, "Aggressively restarting collector service due to lack of reception: backoff: " + aggressive_backoff_timer);
-                    if (aggressive_backoff_timer < 1200) aggressive_backoff_timer += 60;
-                    CollectionServiceStarter.restartCollectionService(context);
-                } else {
-                    aggressive_backoff_timer = 120; // reset
-                }
+                AlarmManagerG5CollectionService.reset();
+                context.stopService(new Intent(context, AlarmManagerG5CollectionService.class));
+                context.startService(new Intent(context, AlarmManagerG5CollectionService.class));
             }
         }
         Reminder.processAnyDueReminders();

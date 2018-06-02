@@ -48,7 +48,7 @@ public class StatsResult {
     }
 
     public StatsResult(SharedPreferences settings, boolean sliding24Hours, long to) {
-        this(settings, sliding24Hours?to-(24*60*60*1000):getTodayTimestamp(), to);
+        this(settings, sliding24Hours ? to - (24*60*60*1000) : getTodayTimestamp(), to);
     }
 
 

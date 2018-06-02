@@ -149,4 +149,10 @@
         <item>Default xDrip+ reminder sound</item>
     </string-array>
 
+    <string-array name="stats_hours">
+        <item>24 (1 day)</item>
+        <item>168 (7 days)</item>
+        <item>1008 (6 weeks)</item>
+    </string-array>
+
 </resources>

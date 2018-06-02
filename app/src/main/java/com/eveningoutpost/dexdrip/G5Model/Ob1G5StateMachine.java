@@ -630,8 +630,7 @@ public class Ob1G5StateMachine {
     }
 
     public static byte[] cryptKey() {
-        //final String transmitterId = Ob1G5CollectionService.getTransmitterID();
-        final String transmitterId = "40RDC8";
+        final String transmitterId = Home.getPreferencesStringWithDefault("dex_txid", "NULL");
         if (transmitterId.length() != 6)
             UserError.Log.e(TAG, "cryptKey: Wrong transmitter id length!: " + transmitterId.length());
         try {
