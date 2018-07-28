@@ -1,5 +1,6 @@
 package com.eveningoutpost.dexdrip.UtilityModels;
 
+import android.annotation.TargetApi;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -349,6 +350,7 @@ public class CollectionServiceStarter {
         }
     }
 
+    @TargetApi(23)
     private void startBtG5Service() {
         Log.d(TAG,"stopping G5 service");
         stopG5ShareService();
@@ -359,7 +361,11 @@ public class CollectionServiceStarter {
            this.mContext.startService(new Intent(this.mContext, Ob1G5CollectionService.class));
        } else if (Home.getPreferencesBooleanDefaultFalse(Ob1G5CollectionService.ALARM_MANAGER_G5_PREF)) {
            Log.d(TAG, "Preference for AlarmManagerG5Service set to true");
-           this.mContext.startService(new Intent(this.mContext, AlarmManagerG5CollectionService.class));
+           AlarmManager alarmMgr = (AlarmManager) this.mContext.getSystemService(Context.ALARM_SERVICE);
+           Intent receiverIntent = new Intent(this.mContext, AlarmManagerG5CollectionService.class);
+           PendingIntent alarmIntent = PendingIntent.getService(this.mContext, 0, receiverIntent, 0);
+           if (alarmMgr != null)
+               alarmMgr.setExact(AlarmManager.RTC_WAKEUP, Calendar.getInstance().getTimeInMillis(), alarmIntent);
        } else {
            G5CollectionService.keep_running = true;
            this.mContext.startService(new Intent(this.mContext, G5CollectionService.class));

@@ -28,13 +28,17 @@ import com.polidea.rxandroidble.RxBleClient;
 import com.polidea.rxandroidble.RxBleConnection;
 import com.polidea.rxandroidble.RxBleDevice;
 import com.polidea.rxandroidble.RxBleDeviceServices;
+import com.polidea.rxandroidble.helpers.ValueInterpreter;
+import com.polidea.rxandroidble.internal.RxBleLog;
 
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import rx.Observable;
 import rx.Subscription;
 
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
@@ -44,7 +48,7 @@ public class AlarmManagerG5CollectionService extends IntentService {
 
     public static final String CLASS_NAME = AlarmManagerG5CollectionService.class.getSimpleName();
 
-    public static final long DEFAULT_TIMEFRAME_IN_MILLIS = 60000;
+    public static final long DEFAULT_TIMEFRAME_IN_MILLIS = 120000;
     public static final String DEFAULT_INTERVAL_IN_MILLIS = "20000";
     private static AlarmManagerG5CollectionService singletonService;
 
@@ -71,6 +75,9 @@ public class AlarmManagerG5CollectionService extends IntentService {
     private Long intervalInMillis = Long.parseLong(Home.getPreferencesStringWithDefault("alarm_manager_collection_interval", DEFAULT_INTERVAL_IN_MILLIS));
     private long plannedReceiverRestartMillis;
     private long receiverStartMillis;
+
+    private Observable<byte[]> notificationObservable;
+    private Subscription notificationSubscription;
 
     //private int errorCount = 3;
 
@@ -152,7 +159,7 @@ public class AlarmManagerG5CollectionService extends IntentService {
                 }
 
                 if (weAreInTimeframeBeforeConnection()) {
-                    collectData();
+                    collectDataWithScanning();
                     break;
                 } else {
                     UserError.Log.i(CLASS_NAME, "Not in Timeframe. Restarting...");
@@ -167,6 +174,7 @@ public class AlarmManagerG5CollectionService extends IntentService {
     @Override
     public void onCreate() {
         super.onCreate();
+        UserError.Log.wtf(CLASS_NAME, "AlarmManagerG5CollectionService started.");
     }
 
     public void copyObjectState(AlarmManagerG5CollectionService serviceToCopy) {
@@ -183,6 +191,8 @@ public class AlarmManagerG5CollectionService extends IntentService {
         this.timeFrameInMillis = serviceToCopy.timeFrameInMillis;
         this.intervalInMillis = serviceToCopy.intervalInMillis;
         this.plannedReceiverRestartMillis = serviceToCopy.plannedReceiverRestartMillis;
+        this.notificationObservable = serviceToCopy.notificationObservable;
+        this.notificationSubscription = serviceToCopy.notificationSubscription;
     }
 
     private boolean weAreInTimeframeBeforeConnection() {
@@ -202,16 +212,67 @@ public class AlarmManagerG5CollectionService extends IntentService {
         }
     }
 
+    private void collectDataWithScanning() {
+        String dexId = Home.getPreferencesStringWithDefault("dex_txid", "000000");
+        dexId = "Dexcom" + dexId.substring(4);
+        this.transmitterScan = new G5TransmitterScan(rxBleClient, dexId).doScan(this, scanResult -> {
+            UserError.Log.d(CLASS_NAME, "Device found" +
+                    ": " + scanResult.getBleDevice().getName());
+            this.bleDevice = scanResult.getBleDevice();
+            this.macAddress = bleDevice.getMacAddress();
+            this.lastSuccessfulReceiverConnectionMillis = System.currentTimeMillis();
+            if (deviceIsBonded()) {
+                this.state = State.DATA_COLLECT;
+                this.connectionRequest = new G5ConnectionRequest(this.rxBleClient, this.macAddress, 10000, false).connect(this, rxBleConnection -> {
+                    this.connection = rxBleConnection;
+                    this.lastSuccessfulReceiverConnectionMillis = System.currentTimeMillis();
+                    this.timeFrameInMillis = DEFAULT_TIMEFRAME_IN_MILLIS;
+                    this.intervalInMillis = Long.parseLong(Home.getPreferencesStringWithDefault(
+                            "alarm_manager_collection_interval", DEFAULT_INTERVAL_IN_MILLIS));
+                    UserError.Log.d(CLASS_NAME, "Connected to device. Now authorizing" +
+                            ": " + rxBleConnection.toString());
+                    setupNotification(connection);
+                    authorizeAndGetData();
+                }, this::printStacktraceAndTryAgain);
+            } else {
+                establishConnectionForServiceDiscovery();
+            }
+        }, this::printStacktraceAndTryAgain);
+    }
+
     private void collectData() {
-        this.connectionRequest = new G5ConnectionRequest(this.rxBleClient, this.macAddress, this.timeFrameInMillis).connect(rxBleConnection -> {
+        this.connectionRequest = new G5ConnectionRequest(this.rxBleClient, this.macAddress, this.timeFrameInMillis + 10000).connect(rxBleConnection -> {
             this.connection = rxBleConnection;
             this.lastSuccessfulReceiverConnectionMillis = System.currentTimeMillis();
             this.timeFrameInMillis = DEFAULT_TIMEFRAME_IN_MILLIS;
             this.intervalInMillis = Long.parseLong(Home.getPreferencesStringWithDefault(
                     "alarm_manager_collection_interval", DEFAULT_INTERVAL_IN_MILLIS));;
             //this.errorCount = 3;
+            setupNotification(connection);
             authorizeAndGetData();
         }, this::printStacktraceAndTryAgain);
+    }
+
+    private void setupNotification(RxBleConnection rxBleConnection) {
+        if (this.notificationSubscription == null) {
+            this.notificationSubscription = rxBleConnection.setupNotification(BluetoothServices.Communication)
+                    .doOnNext(notificationObservable -> {
+                        this.notificationObservable = notificationObservable;
+                        UserError.Log.wtf(CLASS_NAME, "Got Notification Observable");
+                    })
+                    .flatMap(notificationObservable -> notificationObservable)
+                    .subscribe(
+                            bytes -> {
+                                UserError.Log.wtf(CLASS_NAME, "NOTIFICATION: " + Arrays.toString(bytes));
+                            },
+                            throwable -> {
+                                UserError.Log.wtf(CLASS_NAME, "NOTIFICATION throwable: " + throwable);
+                            }
+                    );
+        }
+        else {
+            UserError.Log.wtf(CLASS_NAME, "Not recreating Notification Observable");
+        }
     }
 
     private void authorizeAndGetData() {

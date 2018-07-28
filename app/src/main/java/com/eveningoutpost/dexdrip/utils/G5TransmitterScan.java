@@ -1,5 +1,7 @@
 package com.eveningoutpost.dexdrip.utils;
 
+import android.content.Context;
+
 import com.polidea.rxandroidble.RxBleClient;
 import com.polidea.rxandroidble.scan.ScanResult;
 import com.polidea.rxandroidble.scan.ScanSettings;
@@ -33,6 +35,22 @@ public class G5TransmitterScan {
                         .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                         .build())
                 .take(SCANNING_TIME_MINUTES, TimeUnit.MINUTES)
+                .takeFirst(this::withDexcomDeviceName)
+                .subscribe(this.successConsumer::call, this.failConsumer::call);
+    }
+
+    public Subscription doScan(Context context, Action1<ScanResult> successConsumer, Action1<Throwable> failConsumer) {
+        this.successConsumer = successConsumer;
+        this.failConsumer = failConsumer;
+
+        return rxBleClient.scanBleDevices(
+                new ScanSettings.Builder()
+                        .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+                        .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                        .build())
+                .take(SCANNING_TIME_MINUTES, TimeUnit.MINUTES)
+                .doOnSubscribe(() -> WakeLock.aquire(context))
+                .doOnTerminate(() -> WakeLock.release())
                 .takeFirst(this::withDexcomDeviceName)
                 .subscribe(this.successConsumer::call, this.failConsumer::call);
     }
